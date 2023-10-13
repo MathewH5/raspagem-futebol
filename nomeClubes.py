@@ -1,5 +1,6 @@
 import pandas as pd
 from selenium import webdriver
+from selenium.common import NoSuchElementException
 from selenium.webdriver import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -8,25 +9,37 @@ from bs4 import BeautifulSoup
 import time
 from selenium.webdriver.chrome.options import Options
 
-ligas = ["Arabia saudita", "campeonato Argentino", "Eredivisie", "Liga NOS", "Ligue 1", "Campeonato Brasileiro", "premier-league", "Bundesliga", "Serie A", "La Liga",]  # Adicione mais nomes conforme necessário
+ligas = ["https://footystats.org/pt/portugal/liga-nos",
+         "https://footystats.org/pt/brazil/serie-a",
+         "https://footystats.org/pt/france/ligue-1",
+         "https://footystats.org/pt/brazil/serie-a",
+         "https://footystats.org/pt/netherlands/eredivisie",
+         "https://footystats.org/pt/england/premier-league",
+         "https://footystats.org/pt/germany/bundesliga",
+         "https://footystats.org/pt/saudi-arabia/professional-league",
+         "https://footystats.org/pt/spain/la-liga",
+         "https://footystats.org/pt/argentina/primera-division",
+         "https://footystats.org/pt/italy/serie-a"]  # Adicione mais nomes conforme necessário
 
 for liga in ligas:
 
     driver = webdriver.Chrome()
 
     # Abrir a página da web
-    driver.get('https://footystats.org/pt/saudi-arabia/professional-league')
+    driver.get(liga)
 
-    botao_fechar = driver.find_element(By.CSS_SELECTOR, 'img[id="clever_40359_close_btn"]')
-    if botao_fechar:
-        botao_fechar.click()
-
+    try:
+        botao_fechar = driver.find_element(By.CSS_SELECTOR, 'img[id="clever_40359_close_btn"]')
+        if botao_fechar:
+            botao_fechar.click()
+    except NoSuchElementException:
+        pass  # Lidar com a exceção caso a propaganda não seja encontrada
     #elemento = driver.find_element(By.CSS_SELECTOR, 'input[placeholder="Procurar Equipas e Ligas"]')
     #elemento.send_keys(liga)  # Usar o nome da lista
     #time_prcourado = liga
     #elemento.send_keys(Keys.RETURN)
 
-    time.sleep(2)
+    #time.sleep(2)
 
     #primeira_opcao = driver.find_element(By.CSS_SELECTOR, 'ul > li a.cf')
     #primeira_opcao.click()
@@ -37,13 +50,20 @@ for liga in ligas:
 
     site = BeautifulSoup(page_source, 'html.parser')
 
-    dic_time = {'time':[], 'vitoria':[], 'empates':[], 'derrotas':[], 'golsFeitos':[], 'golsTomados':[], 'over1.5':[], 'over2.5':[],'mediaGols':[]}
+    links_elementos = driver.find_elements(By.CSS_SELECTOR, 'td.team.borderRightContent a.bold')
+    links = [link.get_attribute('href') for link in links_elementos]
+    print(links)
+
+    dic_time = {'time':[], 'vitoria':[], 'empates':[], 'derrotas':[], 'golsFeitos':[], 'golsTomados':[], 'over1.5':[], 'over2.5':[],'mediaGols':[], 'link':links}
+
+    liga_name_element = driver.find_element(By.CSS_SELECTOR, 'h1.fs14e')
+    liga_prcourado = liga_name_element.text.strip()
 
     tabela = site.find('div', attrs={'class': 'table-wrapper'})
     tbody = tabela.find('tbody')
     time = tbody.findAll('tr')
 
-
+    contador = 0
     print(time)
     for jogo in time:
         #nome = jogo.find('td', attrs={'class': 'team borderRightContent'}).find('a').get_text().strip()
@@ -63,7 +83,11 @@ for liga in ligas:
         derrotas = jogo.find('td', class_='loss').text
         gf = jogo.find('td', class_='gf').text
         gc = jogo.find('td', class_='ga').text
-        over1_5 = jogo.find('td', class_='over15').text
+        over15_elements = jogo.find_all('td', class_='over15')
+        if len(over15_elements) >= 2:
+            over1_5 = over15_elements[1].text
+        else:
+            over1_5 = "N/A"
         over2_5 = jogo.find('td', class_='over25').text
         mediaGols = jogo.find('td', class_='avg').text
 
@@ -77,10 +101,25 @@ for liga in ligas:
         dic_time['over2.5'].append(over2_5)
         dic_time['mediaGols'].append(mediaGols)
 
-        df = pd.DataFrame(dic_time)
-        # Suponhamos que você tenha um valor para 'elemento.send_keys' como 'cruzeiro'
-        nome_do_arquivo = f'C:/Users/mathe/Downloads/{liga}_historico.csv'
-        # Em seguida, use o nome_do_arquivo na chamada df.to_csv
-        df.to_csv(nome_do_arquivo, encoding='utf-8-sig', sep=',', index=False)
+        print("Time #", contador + 1)
+        print("Nome:", nome)
+        print("Vitórias:", vitorias)
+        print("Empates:", empates)
+        print("Derrotas:", derrotas)
+        print("Gols Feitos:", gf)
+        print("Gols Tomados:", gc)
+        print("Over 1.5:", over1_5)
+        print("Over 2.5:", over2_5)
+        print("Média de Gols:", mediaGols)
+        # Resto do seu código
+
+        # No final do loop, incremente o contador
+        contador += 1
+
+    df = pd.DataFrame(dic_time)
+    # Suponhamos que você tenha um valor para 'elemento.send_keys' como 'cruzeiro'
+    nome_do_arquivo = f'C:/Users/mathe/Downloads/{liga_prcourado}_historico.csv'
+    # Em seguida, use o nome_do_arquivo na chamada df.to_csv
+    df.to_csv(nome_do_arquivo, encoding='utf-8-sig', sep=',', index=False)
 
 
